@@ -20,7 +20,6 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
         retry(2)
         timestamps()
-        ansiColor('xterm')
     }
     
     stages {
