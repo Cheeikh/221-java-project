@@ -163,19 +163,32 @@ curl -X POST \
 # Allez dans votre service > Deploys > Manual Deploy
 ```
 
-### Configuration des webhooks
+### Configuration du déploiement automatique
 
-1. **Docker Hub** :
-   - Allez dans votre repository Docker Hub `Cheeikh/spring-boot-demo`
-   - **Webhooks** > **Create Webhook**
-   - URL : `https://api.render.com/v1/services/YOUR_SERVICE_ID/deploys`
-   - Secret : Votre clé API Render
+**Note** : Les webhooks Render ne sont pas gratuits. Nous utilisons une approche alternative via Jenkins.
 
-2. **GitHub** :
-   - Allez dans votre repository GitHub `Cheeikh/221-java-project`
-   - **Settings** > **Webhooks**
-   - URL : `https://api.render.com/v1/services/YOUR_SERVICE_ID/deploys`
-   - Events : `push`
+#### Méthode 1 : Déploiement via API Render (Recommandée)
+
+Le déploiement se fait automatiquement via Jenkins qui :
+1. Construit l'image Docker
+2. La pousse vers Docker Hub
+3. Déclenche le déploiement sur Render via l'API
+
+#### Méthode 2 : Déploiement manuel
+
+Utilisez le script `scripts/deploy-to-render.sh` :
+
+```bash
+# Configuration des variables d'environnement
+export RENDER_SERVICE_ID="your-service-id"
+export RENDER_API_KEY="your-api-key"
+export DOCKER_USERNAME="Cheeikh"
+export DOCKER_PASSWORD="your-docker-password"
+export DOCKER_TAG="latest"
+
+# Exécution du déploiement
+./scripts/deploy-to-render.sh
+```
 
 ## 📊 Monitoring
 

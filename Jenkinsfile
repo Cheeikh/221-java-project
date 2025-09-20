@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         // Variables d'environnement
-        RENDER_SERVICE_ID = 'your-render-service-id'
+        RENDER_SERVICE_ID = 'srv-d378mo9r0fns739b1rd0'
         RENDER_API_KEY = credentials('render-api-key')
         MAVEN_OPTS = '-Xmx1024m'
         PATH = "/usr/local/bin:${env.PATH}"
@@ -176,7 +176,8 @@ pipeline {
             steps {
                 echo '🚀 Déploiement sur Render...'
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        // Méthode 1: Déploiement via API Render (gratuit)
                         def deployCommand = """
                             curl -X POST \\
                             -H "Authorization: Bearer ${RENDER_API_KEY}" \\
@@ -185,6 +186,21 @@ pipeline {
                             https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys
                         """
                         sh deployCommand
+                        
+                        // Méthode 2: Déploiement via Render CLI (alternative)
+                        sh '''
+                            # Installation de Render CLI si nécessaire
+                            if ! command -v render &> /dev/null; then
+                                echo "Installation de Render CLI..."
+                                curl -fsSL https://cli.render.com/install.sh | sh
+                            fi
+                            
+                            # Configuration du CLI
+                            export RENDER_API_KEY="${RENDER_API_KEY}"
+                            
+                            # Déploiement via CLI
+                            render service deploy ${RENDER_SERVICE_ID} --image ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER}
+                        '''
                     }
                 }
             }

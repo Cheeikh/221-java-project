@@ -243,6 +243,30 @@ docker-compose logs -f
 docker-compose exec app bash
 ```
 
+## ⚙️ Configuration
+
+Pour la configuration complète, consultez le [Guide de configuration](CONFIGURATION.md).
+
+### Configuration rapide
+
+1. **Jenkins** : Configurez JDK 11 et les credentials
+2. **Docker Hub** : Créez le repository `Cheeikh/spring-boot-demo`
+3. **Render** : Créez le service avec l'ID `srv-d378mo9r0fns739b1rd0`
+4. **Déploiement** : Lancez le pipeline Jenkins
+
+### Déploiement manuel
+
+```bash
+# Configuration des variables
+export RENDER_SERVICE_ID="srv-d378mo9r0fns739b1rd0"
+export RENDER_API_KEY="your-api-key"
+export DOCKER_USERNAME="Cheeikh"
+export DOCKER_PASSWORD="your-docker-password"
+
+# Déploiement
+./scripts/deploy-to-render.sh
+```
+
 ## 🤝 Contributions
 
 1. Fork le projet
