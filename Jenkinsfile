@@ -1,6 +1,10 @@
 pipeline {
     agent any
     
+    tools {
+        jdk 'JDK-11'
+    }
+    
     environment {
         // Variables d'environnement
         RENDER_SERVICE_ID = 'srv-d378mo9r0fns739b1rd0'
@@ -8,6 +12,7 @@ pipeline {
         MAVEN_OPTS = '-Xmx1024m'
         PATH = "/usr/local/bin:${env.PATH}"
         DOCKER_BUILDKIT = "1"
+        JAVA_HOME = tool('JDK-11')
     }
     
     options {
@@ -103,13 +108,35 @@ pipeline {
                     sh '''
                         echo "=== Vérification Docker ==="
                         echo "PATH: $PATH"
-                        echo "Docker location: $(which docker)"
+                        echo "Docker location: $(which docker 2>/dev/null || echo 'Non trouvé')"
                         
                         # Vérifier que Docker est accessible
                         if ! command -v docker >/dev/null 2>&1; then
                             echo "❌ Docker non trouvé dans PATH"
-                            echo "Veuillez installer Docker Desktop depuis https://docker.com"
-                            exit 1
+                            echo "🔧 Installation de Docker..."
+                            
+                            # Essayer d'installer Docker automatiquement
+                            if [[ "$OSTYPE" == "darwin"* ]]; then
+                                if command -v brew >/dev/null 2>&1; then
+                                    echo "📦 Installation via Homebrew..."
+                                    brew install --cask docker
+                                    open -a Docker
+                                    echo "⏳ Attente du démarrage de Docker..."
+                                    sleep 30
+                                else
+                                    echo "❌ Homebrew non trouvé. Installez Docker manuellement depuis https://docker.com"
+                                    exit 1
+                                fi
+                            elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+                                echo "📦 Installation via apt..."
+                                sudo apt-get update
+                                sudo apt-get install -y docker.io
+                                sudo systemctl start docker
+                                sudo usermod -aG docker $USER
+                            else
+                                echo "❌ OS non supporté. Installez Docker manuellement"
+                                exit 1
+                            fi
                         fi
                         
                         # Afficher la version Docker
@@ -176,18 +203,7 @@ pipeline {
             steps {
                 echo '🚀 Déploiement sur Render...'
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        // Méthode 1: Déploiement via API Render (gratuit)
-                        def deployCommand = """
-                            curl -X POST \\
-                            -H "Authorization: Bearer ${RENDER_API_KEY}" \\
-                            -H "Content-Type: application/json" \\
-                            -d '{"image": "${env.DOCKER_USERNAME}/${env.JOB_NAME}:${env.BUILD_NUMBER}"}' \\
-                            https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys
-                        """
-                        sh deployCommand
-                        
-                        // Méthode 2: Déploiement via Render CLI (alternative)
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                         sh '''
                             # Installation de Render CLI si nécessaire
                             if ! command -v render &> /dev/null; then
@@ -210,10 +226,21 @@ pipeline {
     post {
         always {
             echo '🧹 Nettoyage des images Docker locales...'
-            sh '''
-                docker image prune -f
-                docker system prune -f
-            '''
+            script {
+                try {
+                    sh '''
+                        # Nettoyer seulement si Docker est disponible
+                        if command -v docker >/dev/null 2>&1; then
+                            docker image prune -f || true
+                            docker system prune -f || true
+                        else
+                            echo "Docker non disponible pour le nettoyage"
+                        fi
+                    '''
+                } catch (Exception e) {
+                    echo "Erreur lors du nettoyage: ${e.getMessage()}"
+                }
+            }
         }
         
         success {

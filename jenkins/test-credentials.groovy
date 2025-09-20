@@ -64,9 +64,10 @@ pipeline {
                 echo '🐙 Test Credentials GitHub'
                 script {
                     try {
+                        // Essayer d'abord avec SSH
                         withCredentials([sshUserPrivateKey(credentialsId: 'github-credentials', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                             sh '''
-                                echo "=== Test GitHub Credentials ==="
+                                echo "=== Test GitHub Credentials (SSH) ==="
                                 echo "SSH User: $SSH_USER"
                                 echo "SSH Key file: $SSH_KEY"
                                 
@@ -83,8 +84,35 @@ pipeline {
                             '''
                         }
                     } catch (Exception e) {
-                        echo "❌ Erreur avec les credentials GitHub: ${e.getMessage()}"
-                        echo "Vérifiez que le credential 'github-credentials' est configuré"
+                        echo "⚠️ SSH GitHub échoué, tentative avec Username/Password..."
+                        try {
+                            // Fallback avec Username/Password
+                            withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_PASSWORD')]) {
+                                sh '''
+                                    echo "=== Test GitHub Credentials (Username/Password) ==="
+                                    echo "Username: $GITHUB_USERNAME"
+                                    echo "Password length: ${#GITHUB_PASSWORD}"
+                                    
+                                    # Test de connexion GitHub via API
+                                    echo "Test de connexion GitHub API..."
+                                    response=$(curl -s -w "%{http_code}" -u "$GITHUB_USERNAME:$GITHUB_PASSWORD" https://api.github.com/user)
+                                    
+                                    if [[ "$response" == *"200" ]]; then
+                                        echo "✅ Connexion GitHub API réussie!"
+                                    else
+                                        echo "❌ Connexion GitHub API échouée!"
+                                        echo "Response: $response"
+                                        exit 1
+                                    fi
+                                '''
+                            }
+                        } catch (Exception e2) {
+                            echo "❌ Erreur avec les credentials GitHub: ${e2.getMessage()}"
+                            echo "🔧 Instructions de configuration:"
+                            echo "1. Pour SSH: Créez un credential de type 'SSH Username with private key'"
+                            echo "2. Pour Username/Password: Créez un credential de type 'Username with password'"
+                            echo "3. ID du credential: 'github-credentials'"
+                        }
                     }
                 }
             }
@@ -166,13 +194,24 @@ pipeline {
     post {
         always {
             echo '🧹 Nettoyage des tests'
-            sh '''
-                # Nettoyer les images de test
-                docker rmi $DOCKER_USERNAME/test-credentials:latest 2>/dev/null || true
-                docker rmi $DOCKER_USERNAME/spring-boot-demo:test-${BUILD_NUMBER} 2>/dev/null || true
-                docker rmi $DOCKER_USERNAME/spring-boot-demo:test-latest 2>/dev/null || true
-                docker image prune -f
-            '''
+            script {
+                try {
+                    sh '''
+                        # Nettoyer seulement si Docker est disponible
+                        if command -v docker >/dev/null 2>&1; then
+                            # Nettoyer les images de test
+                            docker rmi $DOCKER_USERNAME/test-credentials:latest 2>/dev/null || true
+                            docker rmi $DOCKER_USERNAME/spring-boot-demo:test-${BUILD_NUMBER} 2>/dev/null || true
+                            docker rmi $DOCKER_USERNAME/spring-boot-demo:test-latest 2>/dev/null || true
+                            docker image prune -f || true
+                        else
+                            echo "Docker non disponible pour le nettoyage"
+                        fi
+                    '''
+                } catch (Exception e) {
+                    echo "Erreur lors du nettoyage: ${e.getMessage()}"
+                }
+            }
         }
         
         success {

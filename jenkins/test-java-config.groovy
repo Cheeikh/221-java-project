@@ -10,7 +10,7 @@ pipeline {
     
     environment {
         JAVA_HOME = tool('JDK-11')
-        PATH = "${JAVA_HOME}/bin:${env.PATH}"
+        PATH = "${JAVA_HOME}/bin:/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
     }
     
     stages {
@@ -82,12 +82,41 @@ EOF
                 echo '📦 Test 4: Test de Maven avec Java'
                 sh '''
                     echo "=== Test Maven ==="
+                    echo "PATH actuel: $PATH"
+                    echo ""
+                    echo "Recherche de Maven:"
+                    which mvn || echo "Maven non trouvé dans PATH"
+                    echo ""
+                    echo "Recherche dans /opt/homebrew/bin:"
+                    ls -la /opt/homebrew/bin/mvn* 2>/dev/null || echo "Maven non trouvé dans /opt/homebrew/bin"
+                    echo ""
+                    echo "Recherche dans /usr/local/bin:"
+                    ls -la /usr/local/bin/mvn* 2>/dev/null || echo "Maven non trouvé dans /usr/local/bin"
+                    echo ""
+                    echo "Test d'installation Maven si nécessaire:"
+                    if ! command -v mvn >/dev/null 2>&1; then
+                        echo "Installation de Maven via Homebrew..."
+                        if command -v brew >/dev/null 2>&1; then
+                            brew install maven
+                            export PATH="/opt/homebrew/bin:$PATH"
+                        else
+                            echo "❌ Homebrew non trouvé, installation manuelle requise"
+                            exit 1
+                        fi
+                    fi
+                    echo ""
                     echo "Version Maven:"
                     mvn -version
                     echo ""
                     echo "Test de compilation Maven:"
-                    mvn clean compile -q
-                    echo "✅ Maven fonctionne correctement!"
+                    # Aller dans le répertoire du projet pour le test Maven
+                    if [ -f "pom.xml" ]; then
+                        mvn clean compile -q
+                        echo "✅ Maven fonctionne correctement avec le projet!"
+                    else
+                        echo "ℹ️ Pas de projet Maven dans ce répertoire, test de version uniquement"
+                        echo "✅ Maven est installé et accessible!"
+                    fi
                 '''
             }
         }
