@@ -1,0 +1,49 @@
+services:
+  # Service principal de l'application Spring Boot
+  - type: web
+    name: spring-boot-demo
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: oregon
+    branch: main
+    buildCommand: echo "Build handled by Docker"
+    startCommand: java -jar app.jar
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: production
+      - key: JAVA_OPTS
+        value: -Xmx512m -Xms256m
+      - key: PORT
+        value: 10000
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    pullRequestPreviewsEnabled: true
+    
+  # Service de base de données (optionnel)
+  - type: pserv
+    name: postgres-db
+    env: docker
+    dockerfilePath: ./postgres/Dockerfile
+    plan: starter
+    region: oregon
+    envVars:
+      - key: POSTGRES_DB
+        value: springboot_demo
+      - key: POSTGRES_USER
+        value: demo_user
+      - key: POSTGRES_PASSWORD
+        value: secure_password_here
+    disk:
+      name: postgres-data
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 1
+
+  # Service Redis pour le cache (optionnel)
+  - type: redis
+    name: redis-cache
+    plan: starter
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    persistence: false
