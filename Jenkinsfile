@@ -131,10 +131,8 @@ pipeline {
                             # Nettoyer les images Docker inutiles avant le build
                             docker image prune -f || true
                             
-                            # Build avec cache et optimisations
+                            # Build simple sans optimisations ni cache
                             docker build \
-                                --build-arg BUILDKIT_INLINE_CACHE=1 \
-                                --cache-from ${DOCKER_USERNAME}/${JOB_NAME}:latest \
                                 -t ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER} \
                                 -t ${DOCKER_USERNAME}/${JOB_NAME}:latest \
                                 .
