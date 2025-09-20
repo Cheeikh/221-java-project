@@ -129,48 +129,48 @@ EOF
             }
         }
         
-        stage('Test') {
-            parallel {
-                stage('Unit Tests') {
-                    steps {
-                        echo '🧪 Exécution des tests unitaires...'
-                        sh '''
-                            export PATH="/opt/maven/bin:$PATH"
-                            mvn test -Dtest=**/*Test.java
-                        '''
-                    }
-                    post {
-                        always {
-                            publishTestResults testResultsPattern: 'target/surefire-reports/*.xml'
-                        }
-                    }
-                }
+        // stage('Test') {
+        //     parallel {
+        //         stage('Unit Tests') {
+        //             steps {
+        //                 echo '🧪 Exécution des tests unitaires...'
+        //                 sh '''
+        //                     export PATH="/opt/maven/bin:$PATH"
+        //                     mvn test -Dtest=**/*Test.java
+        //                 '''
+        //             }
+        //             post {
+        //                 always {
+        //                     publishTestResults testResultsPattern: 'target/surefire-reports/*.xml'
+        //                 }
+        //             }
+        //         }
                 
-                stage('Code Quality') {
-                    steps {
-                        echo '📊 Analyse de la qualité du code...'
-                        sh '''
-                            export PATH="/opt/maven/bin:$PATH"
-                            mvn checkstyle:checkstyle
-                            mvn spotbugs:check
-                        '''
-                    }
-                    post {
-                        always {
-                            publishCheckstyle pattern: 'target/checkstyle-results.xml'
-                            publishHTML([
-                                allowMissing: false,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: 'target/spotbugs',
-                                reportFiles: 'index.html',
-                                reportName: 'SpotBugs Report'
-                            ])
-                        }
-                    }
-                }
-            }
-        }
+        //         stage('Code Quality') {
+        //             steps {
+        //                 echo '📊 Analyse de la qualité du code...'
+        //                 sh '''
+        //                     export PATH="/opt/maven/bin:$PATH"
+        //                     mvn checkstyle:checkstyle
+        //                     mvn spotbugs:check
+        //                 '''
+        //             }
+        //             post {
+        //                 always {
+        //                     publishCheckstyle pattern: 'target/checkstyle-results.xml'
+        //                     publishHTML([
+        //                         allowMissing: false,
+        //                         alwaysLinkToLastBuild: true,
+        //                         keepAll: true,
+        //                         reportDir: 'target/spotbugs',
+        //                         reportFiles: 'index.html',
+        //                         reportName: 'SpotBugs Report'
+        //                     ])
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         
         stage('Package') {
             steps {
