@@ -44,49 +44,6 @@ pipeline {
             }
         }
         
-        // stage('Test') {
-        //     parallel {
-        //         stage('Unit Tests') {
-        //             steps {
-        //                 echo '🧪 Exécution des tests unitaires...'
-        //                 sh '''
-        //                     export PATH="/opt/maven/bin:$PATH"
-        //                     mvn test -Dtest=**/*Test.java
-        //                 '''
-        //             }
-        //             post {
-        //                 always {
-        //                     publishTestResults testResultsPattern: 'target/surefire-reports/*.xml'
-        //                 }
-        //             }
-        //         }
-                
-        //         stage('Code Quality') {
-        //             steps {
-        //                 echo '📊 Analyse de la qualité du code...'
-        //                 sh '''
-        //                     export PATH="/opt/maven/bin:$PATH"
-        //                     mvn checkstyle:checkstyle
-        //                     mvn spotbugs:check
-        //                 '''
-        //             }
-        //             post {
-        //                 always {
-        //                     publishCheckstyle pattern: 'target/checkstyle-results.xml'
-        //                     publishHTML([
-        //                         allowMissing: false,
-        //                         alwaysLinkToLastBuild: true,
-        //                         keepAll: true,
-        //                         reportDir: 'target/spotbugs',
-        //                         reportFiles: 'index.html',
-        //                         reportName: 'SpotBugs Report'
-        //                     ])
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-        
         stage('Package') {
             steps {
                 echo '📦 Création du package JAR...'
@@ -102,22 +59,6 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    // Vérification rapide de Docker
-                    sh '''
-                        echo "=== Vérification Docker ==="
-                        if ! command -v docker >/dev/null 2>&1; then
-                            echo "❌ Docker non trouvé - Installation requise"
-                            exit 1
-                        fi
-                        
-                        if ! docker info >/dev/null 2>&1; then
-                            echo "❌ Docker daemon non accessible - Démarrez Docker Desktop"
-                            exit 1
-                        fi
-                        
-                        echo "✅ Docker fonctionnel - Version: $(docker --version)"
-                    '''
-                    
                     // Login Docker Hub avec credentials
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                         sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
@@ -125,52 +66,22 @@ pipeline {
                     
                     // Construire l'image Docker avec optimisations
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh '''
-                            echo "🚀 Construction de l'image Docker avec optimisations..."
-                            
+                        sh '''                            
                             # Nettoyer les images Docker inutiles avant le build
                             docker image prune -f || true
-                            
-                            # Build simple sans optimisations ni cache
+                         
                             docker build \
                                 -t ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER} \
                                 -t ${DOCKER_USERNAME}/${JOB_NAME}:latest \
                                 .
-                            
-                            echo "📤 Push des images vers Docker Hub..."
-                            # Push en parallèle pour gagner du temps
                             docker push ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER} &
                             docker push ${DOCKER_USERNAME}/${JOB_NAME}:latest &
                             wait
                         '''
                     }
-                    
-                    echo "✅ Image Docker construite et poussée avec succès"
-                    echo "Image: ${env.DOCKER_USERNAME}/${env.JOB_NAME}:${env.BUILD_NUMBER}"
-                    echo "Tag latest: ${env.DOCKER_USERNAME}/${env.JOB_NAME}:latest"
                 }
             }
         }
-        
-        
-        // stage('Security Scan') {
-        //     steps {
-        //         echo '🔒 Scan de sécurité de l\'image Docker...'
-        //         script {
-        //             withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-        //                 sh '''
-        //                     # Installation de Trivy si nécessaire
-        //                     if ! command -v trivy &> /dev/null; then
-        //                         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-        //                     fi
-                            
-        //                     # Scan de l'image
-        //                     trivy image --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER}
-        //                 '''
-        //             }
-        //         }
-        //     }
-        // }
         
         stage('Deploy to Render') {
             steps {
@@ -193,7 +104,6 @@ pipeline {
                                 }' \
                                 "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys")
                             
-                            echo "Réponse de l'API Render: $DEPLOY_RESPONSE"
                             
                             # Vérifier si le déploiement a été initié avec succès
                             if echo "$DEPLOY_RESPONSE" | grep -q '"id"'; then
