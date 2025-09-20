@@ -198,17 +198,51 @@ pipeline {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                         sh '''
-                            # Installation de Render CLI si nécessaire
-                            if ! command -v render &> /dev/null; then
-                                echo "Installation de Render CLI..."
-                                curl -fsSL https://cli.render.com/install.sh | sh
+                            echo "=== Déploiement sur Render via API ==="
+                            echo "Service ID: ${RENDER_SERVICE_ID}"
+                            echo "Image Docker: ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER}"
+                            
+                            # Déploiement via API REST de Render
+                            DEPLOY_RESPONSE=$(curl -s -X POST \
+                                -H "Authorization: Bearer ${RENDER_API_KEY}" \
+                                -H "Content-Type: application/json" \
+                                -d '{
+                                    "serviceId": "'${RENDER_SERVICE_ID}'",
+                                    "image": "'${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER}'",
+                                    "autoDeploy": true
+                                }' \
+                                "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys")
+                            
+                            echo "Réponse de l'API Render: $DEPLOY_RESPONSE"
+                            
+                            # Vérifier si le déploiement a été initié avec succès
+                            if echo "$DEPLOY_RESPONSE" | grep -q '"id"'; then
+                                echo "✅ Déploiement initié avec succès sur Render!"
+                                echo "📋 Détails du déploiement:"
+                                echo "$DEPLOY_RESPONSE" | jq '.' 2>/dev/null || echo "$DEPLOY_RESPONSE"
+                            else
+                                echo "⚠️ Problème lors du déploiement:"
+                                echo "$DEPLOY_RESPONSE"
+                                echo "🔄 Tentative alternative avec image latest..."
+                                
+                                # Tentative avec l'image latest
+                                DEPLOY_RESPONSE_LATEST=$(curl -s -X POST \
+                                    -H "Authorization: Bearer ${RENDER_API_KEY}" \
+                                    -H "Content-Type: application/json" \
+                                    -d '{
+                                        "serviceId": "'${RENDER_SERVICE_ID}'",
+                                        "image": "'${DOCKER_USERNAME}/${JOB_NAME}:latest'",
+                                        "autoDeploy": true
+                                    }' \
+                                    "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys")
+                                
+                                if echo "$DEPLOY_RESPONSE_LATEST" | grep -q '"id"'; then
+                                    echo "✅ Déploiement avec image latest réussi!"
+                                else
+                                    echo "❌ Échec du déploiement avec l'image latest aussi"
+                                    echo "Réponse: $DEPLOY_RESPONSE_LATEST"
+                                fi
                             fi
-                            
-                            # Configuration du CLI
-                            export RENDER_API_KEY="${RENDER_API_KEY}"
-                            
-                            # Déploiement via CLI
-                            render service deploy ${RENDER_SERVICE_ID} --image ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER}
                         '''
                     }
                 }
