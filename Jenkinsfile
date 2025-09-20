@@ -40,92 +40,7 @@ pipeline {
         stage('Build') {
             steps {
                 echo '🔨 Construction de l\'application Maven...'
-                script {
-                    // Vérifier et installer Maven si nécessaire
-                    sh '''
-                        # Vérifier si Maven est installé
-                        if ! command -v mvn >/dev/null 2>&1; then
-                            echo "📦 Installation de Maven..."
-                            
-                            # Créer le répertoire Maven
-                            MAVEN_HOME="/opt/maven"
-                            sudo mkdir -p $MAVEN_HOME
-                            
-                            # Télécharger et installer Maven
-                            cd /tmp
-                            curl -O https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz
-                            sudo tar -xzf apache-maven-3.9.6-bin.tar.gz -C $MAVEN_HOME --strip-components=1
-                            
-                            # Ajouter Maven au PATH
-                            echo 'export PATH=$MAVEN_HOME/bin:$PATH' | sudo tee -a /etc/profile
-                            export PATH=$MAVEN_HOME/bin:$PATH
-                            
-                            # Vérifier l'installation
-                            mvn --version
-                        else
-                            echo "✅ Maven déjà installé"
-                            mvn --version
-                        fi
-                        
-                        # Créer un settings.xml temporaire pour utiliser les repositories publics
-                        echo "🔧 Configuration des repositories Maven publics..."
-                        cat > ~/.m2/settings.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 
-          http://maven.apache.org/xsd/settings-1.0.0.xsd">
-    <mirrors>
-        <mirror>
-            <id>central</id>
-            <name>Maven Central</name>
-            <url>https://repo1.maven.org/maven2</url>
-            <mirrorOf>*</mirrorOf>
-        </mirror>
-    </mirrors>
-    <profiles>
-        <profile>
-            <id>public-repos</id>
-            <repositories>
-                <repository>
-                    <id>central</id>
-                    <name>Maven Central</name>
-                    <url>https://repo1.maven.org/maven2</url>
-                </repository>
-                <repository>
-                    <id>spring-milestones</id>
-                    <name>Spring Milestones</name>
-                    <url>https://repo.spring.io/milestone</url>
-                </repository>
-                <repository>
-                    <id>spring-snapshots</id>
-                    <name>Spring Snapshots</name>
-                    <url>https://repo.spring.io/snapshot</url>
-                </repository>
-            </repositories>
-            <pluginRepositories>
-                <pluginRepository>
-                    <id>central</id>
-                    <name>Maven Central</name>
-                    <url>https://repo1.maven.org/maven2</url>
-                </pluginRepository>
-            </pluginRepositories>
-        </profile>
-    </profiles>
-    <activeProfiles>
-        <activeProfile>public-repos</activeProfile>
-    </activeProfiles>
-</settings>
-EOF
-                        echo "✅ Settings.xml configuré avec les repositories publics"
-                    '''
-                    
-                    // Construire l'application avec repositories publics
-                    sh '''
-                        export PATH="/opt/maven/bin:$PATH"
-                        mvn clean compile -DskipTests
-                    '''
-                }
+                sh 'mvn clean compile -DskipTests'
             }
         }
         
@@ -175,10 +90,7 @@ EOF
         stage('Package') {
             steps {
                 echo '📦 Création du package JAR...'
-                sh '''
-                    export PATH="/opt/maven/bin:$PATH"
-                    mvn package -DskipTests
-                '''
+                sh 'mvn package -DskipTests'
             }
             post {
                 success {
