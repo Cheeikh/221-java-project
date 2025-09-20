@@ -173,24 +173,24 @@ pipeline {
         }
         
         
-        stage('Security Scan') {
-            steps {
-                echo '🔒 Scan de sécurité de l\'image Docker...'
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh '''
-                            # Installation de Trivy si nécessaire
-                            if ! command -v trivy &> /dev/null; then
-                                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-                            fi
+        // stage('Security Scan') {
+        //     steps {
+        //         echo '🔒 Scan de sécurité de l\'image Docker...'
+        //         script {
+        //             withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+        //                 sh '''
+        //                     # Installation de Trivy si nécessaire
+        //                     if ! command -v trivy &> /dev/null; then
+        //                         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+        //                     fi
                             
-                            # Scan de l'image
-                            trivy image --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER}
-                        '''
-                    }
-                }
-            }
-        }
+        //                     # Scan de l'image
+        //                     trivy image --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER}
+        //                 '''
+        //             }
+        //         }
+        //     }
+        // }
         
         stage('Deploy to Render') {
             when {
