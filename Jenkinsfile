@@ -8,7 +8,7 @@ pipeline {
     
     environment {
         // Variables d'environnement
-        RENDER_SERVICE_ID = 'srv-d378mo9r0fns739b1rd0'
+        RENDER_SERVICE_ID = credentials('render-service-id')
         RENDER_API_KEY = credentials('render-api-key')
         MAVEN_OPTS = '-Xmx1024m'
         PATH = "/usr/local/bin:${env.PATH}"
@@ -102,52 +102,20 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    // Vérifier que Docker est disponible et fonctionnel
+                    // Vérification rapide de Docker
                     sh '''
                         echo "=== Vérification Docker ==="
-                        echo "PATH: $PATH"
-                        echo "Docker location: $(which docker 2>/dev/null || echo 'Non trouvé')"
-                        
-                        # Vérifier que Docker est accessible
                         if ! command -v docker >/dev/null 2>&1; then
-                            echo "❌ Docker non trouvé dans PATH"
-                            echo "🔧 Installation de Docker..."
-                            
-                            # Essayer d'installer Docker automatiquement
-                            if [[ "$OSTYPE" == "darwin"* ]]; then
-                                if command -v brew >/dev/null 2>&1; then
-                                    echo "📦 Installation via Homebrew..."
-                                    brew install --cask docker
-                                    open -a Docker
-                                    echo "⏳ Attente du démarrage de Docker..."
-                                    sleep 30
-                                else
-                                    echo "❌ Homebrew non trouvé. Installez Docker manuellement depuis https://docker.com"
-                                    exit 1
-                                fi
-                            elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-                                echo "📦 Installation via apt..."
-                                sudo apt-get update
-                                sudo apt-get install -y docker.io
-                                sudo systemctl start docker
-                                sudo usermod -aG docker $USER
-                            else
-                                echo "❌ OS non supporté. Installez Docker manuellement"
-                                exit 1
-                            fi
-                        fi
-                        
-                        # Afficher la version Docker
-                        docker --version
-                        
-                        # Vérifier que Docker daemon est accessible
-                        if ! docker info >/dev/null 2>&1; then
-                            echo "❌ Docker daemon non accessible"
-                            echo "Veuillez démarrer Docker Desktop et réessayer"
+                            echo "❌ Docker non trouvé - Installation requise"
                             exit 1
                         fi
                         
-                        echo "✅ Docker fonctionnel"
+                        if ! docker info >/dev/null 2>&1; then
+                            echo "❌ Docker daemon non accessible - Démarrez Docker Desktop"
+                            exit 1
+                        fi
+                        
+                        echo "✅ Docker fonctionnel - Version: $(docker --version)"
                     '''
                     
                     // Login Docker Hub avec credentials
@@ -155,14 +123,28 @@ pipeline {
                         sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
                     }
                     
-                    // Construire l'image Docker avec le nom d'utilisateur Docker Hub
+                    // Construire l'image Docker avec optimisations
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh "docker build -t ${env.DOCKER_USERNAME}/${env.JOB_NAME}:${env.BUILD_NUMBER} ."
-                        sh "docker tag ${env.DOCKER_USERNAME}/${env.JOB_NAME}:${env.BUILD_NUMBER} ${env.DOCKER_USERNAME}/${env.JOB_NAME}:latest"
-                        
-                        // Push vers Docker Hub
-                        sh "docker push ${env.DOCKER_USERNAME}/${env.JOB_NAME}:${env.BUILD_NUMBER}"
-                        sh "docker push ${env.DOCKER_USERNAME}/${env.JOB_NAME}:latest"
+                        sh '''
+                            echo "🚀 Construction de l'image Docker avec optimisations..."
+                            
+                            # Nettoyer les images Docker inutiles avant le build
+                            docker image prune -f || true
+                            
+                            # Build avec cache et optimisations
+                            docker build \
+                                --build-arg BUILDKIT_INLINE_CACHE=1 \
+                                --cache-from ${DOCKER_USERNAME}/${JOB_NAME}:latest \
+                                -t ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER} \
+                                -t ${DOCKER_USERNAME}/${JOB_NAME}:latest \
+                                .
+                            
+                            echo "📤 Push des images vers Docker Hub..."
+                            # Push en parallèle pour gagner du temps
+                            docker push ${DOCKER_USERNAME}/${JOB_NAME}:${BUILD_NUMBER} &
+                            docker push ${DOCKER_USERNAME}/${JOB_NAME}:latest &
+                            wait
+                        '''
                     }
                     
                     echo "✅ Image Docker construite et poussée avec succès"
