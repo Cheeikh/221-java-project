@@ -3,6 +3,7 @@ pipeline {
     
     tools {
         jdk 'JDK-11'
+        maven 'Maven'
     }
     
     environment {
@@ -39,9 +40,40 @@ pipeline {
         stage('Build') {
             steps {
                 echo '🔨 Construction de l\'application Maven...'
-                sh '''
-                    mvn clean compile -DskipTests
-                '''
+                script {
+                    // Vérifier et installer Maven si nécessaire
+                    sh '''
+                        # Vérifier si Maven est installé
+                        if ! command -v mvn >/dev/null 2>&1; then
+                            echo "📦 Installation de Maven..."
+                            
+                            # Créer le répertoire Maven
+                            MAVEN_HOME="/opt/maven"
+                            sudo mkdir -p $MAVEN_HOME
+                            
+                            # Télécharger et installer Maven
+                            cd /tmp
+                            curl -O https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz
+                            sudo tar -xzf apache-maven-3.9.6-bin.tar.gz -C $MAVEN_HOME --strip-components=1
+                            
+                            # Ajouter Maven au PATH
+                            echo 'export PATH=$MAVEN_HOME/bin:$PATH' | sudo tee -a /etc/profile
+                            export PATH=$MAVEN_HOME/bin:$PATH
+                            
+                            # Vérifier l'installation
+                            mvn --version
+                        else
+                            echo "✅ Maven déjà installé"
+                            mvn --version
+                        fi
+                    '''
+                    
+                    // Construire l'application
+                    sh '''
+                        export PATH="/opt/maven/bin:$PATH"
+                        mvn clean compile -DskipTests
+                    '''
+                }
             }
         }
         
@@ -51,6 +83,7 @@ pipeline {
                     steps {
                         echo '🧪 Exécution des tests unitaires...'
                         sh '''
+                            export PATH="/opt/maven/bin:$PATH"
                             mvn test -Dtest=**/*Test.java
                         '''
                     }
@@ -65,6 +98,7 @@ pipeline {
                     steps {
                         echo '📊 Analyse de la qualité du code...'
                         sh '''
+                            export PATH="/opt/maven/bin:$PATH"
                             mvn checkstyle:checkstyle
                             mvn spotbugs:check
                         '''
@@ -90,6 +124,7 @@ pipeline {
             steps {
                 echo '📦 Création du package JAR...'
                 sh '''
+                    export PATH="/opt/maven/bin:$PATH"
                     mvn package -DskipTests
                 '''
             }
