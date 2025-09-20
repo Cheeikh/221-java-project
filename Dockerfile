@@ -26,6 +26,7 @@ FROM openjdk:11-jre-slim
 # Variables d'environnement Java optimisées
 ENV JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseParallelGC -XX:+UseContainerSupport"
 ENV SPRING_PROFILES_ACTIVE=production
+ENV SERVER_PORT=${PORT:-8080}
 
 # Créer un utilisateur non-root pour la sécurité
 RUN groupadd -r spring && useradd -r -g spring spring
@@ -48,11 +49,10 @@ USER spring
 
 # Exposer le port
 EXPOSE 8080
-EXPOSE 10000
 
 # Health check optimisé
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8080/actuator/health || exit 1
+    CMD curl -f http://localhost:${SERVER_PORT:-8080}/actuator/health || exit 1
 
 # Commande de démarrage optimisée
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Dserver.port=$SERVER_PORT -jar app.jar"]
