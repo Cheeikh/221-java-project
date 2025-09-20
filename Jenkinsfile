@@ -193,11 +193,6 @@ pipeline {
         // }
         
         stage('Deploy to Render') {
-            when {
-                anyOf {
-                    branch 'main'
-                }
-            }
             steps {
                 echo '🚀 Déploiement sur Render...'
                 script {
